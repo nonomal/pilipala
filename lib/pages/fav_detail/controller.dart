@@ -1,9 +1,11 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:pilipala/http/user.dart';
 import 'package:pilipala/http/video.dart';
 import 'package:pilipala/models/user/fav_detail.dart';
 import 'package:pilipala/models/user/fav_folder.dart';
+import 'package:pilipala/pages/fav/index.dart';
 
 class FavDetailController extends GetxController {
   FavFolderItemData? item;
@@ -16,7 +18,7 @@ class FavDetailController extends GetxController {
   RxMap favInfo = {}.obs;
   RxList favList = [].obs;
   RxString loadingText = '加载中...'.obs;
-  int mediaCount = 0;
+  RxInt mediaCount = 0.obs;
 
   @override
   void onInit() {
@@ -29,7 +31,7 @@ class FavDetailController extends GetxController {
   }
 
   Future<dynamic> queryUserFavFolderDetail({type = 'init'}) async {
-    if (type == 'onLoad' && favList.length >= mediaCount) {
+    if (type == 'onLoad' && favList.length >= mediaCount.value) {
       loadingText.value = '没有更多了';
       return;
     }
@@ -43,11 +45,11 @@ class FavDetailController extends GetxController {
       favInfo.value = res['data'].info;
       if (currentPage == 1 && type == 'init') {
         favList.value = res['data'].medias;
-        mediaCount = res['data'].info['media_count'];
+        mediaCount.value = res['data'].info['media_count'];
       } else if (type == 'onLoad') {
         favList.addAll(res['data'].medias);
       }
-      if (favList.length >= mediaCount) {
+      if (favList.length >= mediaCount.value) {
         loadingText.value = '没有更多了';
       }
     }
@@ -73,5 +75,42 @@ class FavDetailController extends GetxController {
 
   onLoad() {
     queryUserFavFolderDetail(type: 'onLoad');
+  }
+
+  onDelFavFolder() async {
+    SmartDialog.show(
+      useSystem: true,
+      animationType: SmartAnimationType.centerFade_otherSlide,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('提示'),
+          content: const Text('确定删除这个收藏夹吗？'),
+          actions: [
+            TextButton(
+              onPressed: () async {
+                SmartDialog.dismiss();
+              },
+              child: Text(
+                '点错了',
+                style: TextStyle(color: Theme.of(context).colorScheme.outline),
+              ),
+            ),
+            TextButton(
+              onPressed: () async {
+                var res = await UserHttp.delFavFolder(mediaIds: mediaId!);
+                SmartDialog.dismiss();
+                SmartDialog.showToast(res['status'] ? '操作成功' : res['msg']);
+                if (res['status']) {
+                  FavController favController = Get.find<FavController>();
+                  await favController.removeFavFolder(mediaIds: mediaId!);
+                  Get.back();
+                }
+              },
+              child: const Text('确认'),
+            )
+          ],
+        );
+      },
+    );
   }
 }

@@ -7,8 +7,10 @@ import 'package:pilipala/models/common/dynamic_badge_mode.dart';
 import 'package:pilipala/pages/dynamics/index.dart';
 import 'package:pilipala/pages/home/index.dart';
 import 'package:pilipala/pages/media/index.dart';
+import 'package:pilipala/pages/rank/index.dart';
 import 'package:pilipala/utils/event_bus.dart';
 import 'package:pilipala/utils/feed_back.dart';
+import 'package:pilipala/utils/global_data.dart';
 import 'package:pilipala/utils/storage.dart';
 import './controller.dart';
 
@@ -22,12 +24,12 @@ class MainApp extends StatefulWidget {
 class _MainAppState extends State<MainApp> with SingleTickerProviderStateMixin {
   final MainController _mainController = Get.put(MainController());
   final HomeController _homeController = Get.put(HomeController());
+  final RankController _rankController = Get.put(RankController());
   final DynamicsController _dynamicController = Get.put(DynamicsController());
   final MediaController _mediaController = Get.put(MediaController());
 
   int? _lastSelectTime; //上次点击时间
   Box setting = GStrorage.setting;
-  late bool enableMYBar;
 
   @override
   void initState() {
@@ -35,7 +37,6 @@ class _MainAppState extends State<MainApp> with SingleTickerProviderStateMixin {
     _lastSelectTime = DateTime.now().millisecondsSinceEpoch;
     _mainController.pageController =
         PageController(initialPage: _mainController.selectedIndex);
-    enableMYBar = setting.get(SettingBoxKey.enableMYBar, defaultValue: true);
   }
 
   void setIndex(int value) async {
@@ -55,6 +56,21 @@ class _MainAppState extends State<MainApp> with SingleTickerProviderStateMixin {
       _homeController.flag = true;
     } else {
       _homeController.flag = false;
+    }
+
+    if (currentPage is RankPage) {
+      if (_rankController.flag) {
+        // 单击返回顶部 双击并刷新
+        if (DateTime.now().millisecondsSinceEpoch - _lastSelectTime! < 500) {
+          _rankController.onRefresh();
+        } else {
+          _rankController.animateToTop();
+        }
+        _lastSelectTime = DateTime.now().millisecondsSinceEpoch;
+      }
+      _rankController.flag = true;
+    } else {
+      _rankController.flag = false;
     }
 
     if (currentPage is DynamicsPage) {
@@ -110,81 +126,82 @@ class _MainAppState extends State<MainApp> with SingleTickerProviderStateMixin {
           },
           children: _mainController.pages,
         ),
-        bottomNavigationBar: StreamBuilder(
-          stream: _mainController.hideTabBar
-              ? _mainController.bottomBarStream.stream
-              : StreamController<bool>.broadcast().stream,
-          initialData: true,
-          builder: (context, AsyncSnapshot snapshot) {
-            return AnimatedSlide(
-              curve: Curves.easeInOutCubicEmphasized,
-              duration: const Duration(milliseconds: 500),
-              offset: Offset(0, snapshot.data ? 0 : 1),
-              child: Obx(
-                () => enableMYBar
-                    ? NavigationBar(
-                        onDestinationSelected: (value) => setIndex(value),
-                        selectedIndex: _mainController.selectedIndex,
-                        destinations: <Widget>[
-                          ..._mainController.navigationBars.map((e) {
-                            return NavigationDestination(
-                              icon: Obx(
-                                () => Badge(
-                                  label:
-                                      _mainController.dynamicBadgeType.value ==
+        bottomNavigationBar: _mainController.navigationBars.length > 1
+            ? StreamBuilder(
+                stream: _mainController.hideTabBar
+                    ? _mainController.bottomBarStream.stream.distinct()
+                    : StreamController<bool>.broadcast().stream,
+                initialData: true,
+                builder: (context, AsyncSnapshot snapshot) {
+                  return AnimatedSlide(
+                    curve: Curves.easeInOutCubicEmphasized,
+                    duration: const Duration(milliseconds: 500),
+                    offset: Offset(0, snapshot.data ? 0 : 1),
+                    child: GlobalData().enableMYBar
+                        ? Obx(
+                            () => NavigationBar(
+                              onDestinationSelected: (value) => setIndex(value),
+                              selectedIndex: _mainController.selectedIndex,
+                              destinations: <Widget>[
+                                ..._mainController.navigationBars.map((e) {
+                                  return NavigationDestination(
+                                    icon: Badge(
+                                      label: _mainController
+                                                  .dynamicBadgeType.value ==
                                               DynamicBadgeMode.number
                                           ? Text(e['count'].toString())
                                           : null,
-                                  padding:
-                                      const EdgeInsets.fromLTRB(6, 0, 6, 0),
-                                  isLabelVisible:
-                                      _mainController.dynamicBadgeType.value !=
+                                      padding:
+                                          const EdgeInsets.fromLTRB(6, 0, 6, 0),
+                                      isLabelVisible: _mainController
+                                                  .dynamicBadgeType.value !=
                                               DynamicBadgeMode.hidden &&
                                           e['count'] > 0,
-                                  child: e['icon'],
-                                ),
-                              ),
-                              selectedIcon: e['selectIcon'],
-                              label: e['label'],
-                            );
-                          }).toList(),
-                        ],
-                      )
-                    : BottomNavigationBar(
-                        currentIndex: _mainController.selectedIndex,
-                        onTap: (value) => setIndex(value),
-                        iconSize: 16,
-                        selectedFontSize: 12,
-                        unselectedFontSize: 12,
-                        items: [
-                          ..._mainController.navigationBars.map((e) {
-                            return BottomNavigationBarItem(
-                              icon: Obx(
-                                () => Badge(
-                                  label:
-                                      _mainController.dynamicBadgeType.value ==
+                                      child: e['icon'],
+                                    ),
+                                    selectedIcon: e['selectIcon'],
+                                    label: e['label'],
+                                  );
+                                }).toList(),
+                              ],
+                            ),
+                          )
+                        : Obx(
+                            () => BottomNavigationBar(
+                              currentIndex: _mainController.selectedIndex,
+                              type: BottomNavigationBarType.fixed,
+                              onTap: (value) => setIndex(value),
+                              iconSize: 16,
+                              selectedFontSize: 12,
+                              unselectedFontSize: 12,
+                              items: [
+                                ..._mainController.navigationBars.map((e) {
+                                  return BottomNavigationBarItem(
+                                    icon: Badge(
+                                      label: _mainController
+                                                  .dynamicBadgeType.value ==
                                               DynamicBadgeMode.number
                                           ? Text(e['count'].toString())
                                           : null,
-                                  padding:
-                                      const EdgeInsets.fromLTRB(6, 0, 6, 0),
-                                  isLabelVisible:
-                                      _mainController.dynamicBadgeType.value !=
+                                      padding:
+                                          const EdgeInsets.fromLTRB(6, 0, 6, 0),
+                                      isLabelVisible: _mainController
+                                                  .dynamicBadgeType.value !=
                                               DynamicBadgeMode.hidden &&
                                           e['count'] > 0,
-                                  child: e['icon'],
-                                ),
-                              ),
-                              activeIcon: e['selectIcon'],
-                              label: e['label'],
-                            );
-                          }).toList(),
-                        ],
-                      ),
-              ),
-            );
-          },
-        ),
+                                      child: e['icon'],
+                                    ),
+                                    activeIcon: e['selectIcon'],
+                                    label: e['label'],
+                                  );
+                                }).toList(),
+                              ],
+                            ),
+                          ),
+                  );
+                },
+              )
+            : null,
       ),
     );
   }

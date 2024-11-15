@@ -4,6 +4,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:pilipala/models/model_owner.dart';
 import 'package:pilipala/models/search/hot.dart';
 import 'package:pilipala/models/user/info.dart';
+import '../models/common/gesture_mode.dart';
 import 'global_data.dart';
 
 class GStrorage {
@@ -45,6 +46,11 @@ class GStrorage {
     video = await Hive.openBox('video');
     GlobalData().imgQuality =
         setting.get(SettingBoxKey.defaultPicQa, defaultValue: 10); // 设置全局变量
+    GlobalData().fullScreenGestureMode = FullScreenGestureMode.values[
+        setting.get(SettingBoxKey.fullScreenGestureMode,
+            defaultValue: FullScreenGestureMode.values.last.index) as int];
+    GlobalData().enablePlayerControlAnimation = setting
+        .get(SettingBoxKey.enablePlayerControlAnimation, defaultValue: true);
   }
 
   static void regAdapter() {
@@ -78,6 +84,7 @@ class SettingBoxKey {
       autoUpgradeEnable = 'autoUpgradeEnable',
       feedBackEnable = 'feedBackEnable',
       defaultVideoQa = 'defaultVideoQa',
+      defaultLiveQa = 'defaultLiveQa',
       defaultAudioQa = 'defaultAudioQa',
       autoPlayEnable = 'autoPlayEnable',
       fullScreenMode = 'fullScreenMode',
@@ -94,11 +101,15 @@ class SettingBoxKey {
       enableCDN = 'enableCDN',
       autoPiP = 'autoPiP',
       enableAutoLongPressSpeed = 'enableAutoLongPressSpeed',
+      enablePlayerControlAnimation = 'enablePlayerControlAnimation',
+      // 默认音频输出方式
+      defaultAoOutput = 'defaultAoOutput',
 
       // youtube 双击快进快退
       enableQuickDouble = 'enableQuickDouble',
       enableShowDanmaku = 'enableShowDanmaku',
       enableBackgroundPlay = 'enableBackgroundPlay',
+      fullScreenGestureMode = 'fullScreenGestureMode',
 
       /// 隐私
       blackMidsList = 'blackMidsList',
@@ -122,7 +133,9 @@ class SettingBoxKey {
       enableWordRe = 'enableWordRe',
       enableSearchWord = 'enableSearchWord',
       enableSystemProxy = 'enableSystemProxy',
-      enableAi = 'enableAi';
+      enableAi = 'enableAi',
+      defaultHomePage = 'defaultHomePage',
+      enableRelatedVideo = 'enableRelatedVideo';
 
   /// 外观
   static const String themeMode = 'themeMode',
@@ -137,7 +150,9 @@ class SettingBoxKey {
       hideTabBar = 'hideTabBar', // 收起底栏
       tabbarSort = 'tabbarSort', // 首页tabbar
       dynamicBadgeMode = 'dynamicBadgeMode',
-      enableGradientBg = 'enableGradientBg';
+      enableGradientBg = 'enableGradientBg',
+      navBarSort = 'navBarSort',
+      actionTypeSort = 'actionTypeSort';
 }
 
 class LocalCacheKey {
@@ -161,6 +176,10 @@ class LocalCacheKey {
       // 代理host port
       systemProxyHost = 'systemProxyHost',
       systemProxyPort = 'systemProxyPort';
+
+  static const String isDisableBatteryOptLocal = 'isDisableBatteryOptLocal',
+      isManufacturerBatteryOptimizationDisabled =
+          'isManufacturerBatteryOptimizationDisabled';
 }
 
 class VideoBoxKey {
@@ -172,6 +191,8 @@ class VideoBoxKey {
       videoSpeed = 'videoSpeed',
       // 播放顺序
       playRepeat = 'playRepeat',
+      // 系统预设倍速
+      playSpeedSystem = 'playSpeedSystem',
       // 默认倍速
       playSpeedDefault = 'playSpeedDefault',
       // 默认长按倍速

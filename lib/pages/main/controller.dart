@@ -6,57 +6,16 @@ import 'package:get/get.dart';
 import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
 import 'package:pilipala/http/common.dart';
-import 'package:pilipala/pages/dynamics/index.dart';
-import 'package:pilipala/pages/home/view.dart';
-import 'package:pilipala/pages/media/index.dart';
 import 'package:pilipala/utils/storage.dart';
 import 'package:pilipala/utils/utils.dart';
 import '../../models/common/dynamic_badge_mode.dart';
+import '../../models/common/nav_bar_config.dart';
 
 class MainController extends GetxController {
-  List<Widget> pages = <Widget>[
-    const HomePage(),
-    const DynamicsPage(),
-    const MediaPage(),
-  ];
-  RxList navigationBars = [
-    {
-      'icon': const Icon(
-        Icons.home_outlined,
-        size: 21,
-      ),
-      'selectIcon': const Icon(
-        Icons.home,
-        size: 21,
-      ),
-      'label': "首页",
-      'count': 0,
-    },
-    {
-      'icon': const Icon(
-        Icons.motion_photos_on_outlined,
-        size: 21,
-      ),
-      'selectIcon': const Icon(
-        Icons.motion_photos_on,
-        size: 21,
-      ),
-      'label': "动态",
-      'count': 0,
-    },
-    {
-      'icon': const Icon(
-        Icons.video_collection_outlined,
-        size: 20,
-      ),
-      'selectIcon': const Icon(
-        Icons.video_collection,
-        size: 21,
-      ),
-      'label': "媒体库",
-      'count': 0,
-    }
-  ].obs;
+  List<Widget> pages = <Widget>[];
+  RxList navigationBars = [].obs;
+  late List defaultNavTabs;
+  late List<int> navBarSort;
   final StreamController<bool> bottomBarStream =
       StreamController<bool>.broadcast();
   Box setting = GStrorage.setting;
@@ -74,12 +33,14 @@ class MainController extends GetxController {
     if (setting.get(SettingBoxKey.autoUpdate, defaultValue: false)) {
       Utils.checkUpdata();
     }
-    hideTabBar = setting.get(SettingBoxKey.hideTabBar, defaultValue: true);
+    hideTabBar = setting.get(SettingBoxKey.hideTabBar, defaultValue: false);
+
     var userInfo = userInfoCache.get('userInfoCache');
     userLogin.value = userInfo != null;
     dynamicBadgeType.value = DynamicBadgeMode.values[setting.get(
         SettingBoxKey.dynamicBadgeMode,
         defaultValue: DynamicBadgeMode.number.code)];
+    setNavBarConfig();
     if (dynamicBadgeType.value != DynamicBadgeMode.hidden) {
       getUnreadDynamic();
     }
@@ -122,5 +83,28 @@ class MainController extends GetxController {
       navigationBars[dynamicItemIndex]['count'] = 0; // 修改 count 属性为新的值
     }
     navigationBars.refresh();
+  }
+
+  void setNavBarConfig() async {
+    defaultNavTabs = [...defaultNavigationBars];
+    navBarSort =
+        setting.get(SettingBoxKey.navBarSort, defaultValue: [0, 1, 2, 3]);
+    defaultNavTabs.retainWhere((item) => navBarSort.contains(item['id']));
+    defaultNavTabs.sort((a, b) =>
+        navBarSort.indexOf(a['id']).compareTo(navBarSort.indexOf(b['id'])));
+    navigationBars.value = defaultNavTabs;
+    int defaultHomePage =
+        setting.get(SettingBoxKey.defaultHomePage, defaultValue: 0) as int;
+    int defaultIndex =
+        navigationBars.indexWhere((item) => item['id'] == defaultHomePage);
+    // 如果找不到匹配项，默认索引设置为0或其他合适的值
+    selectedIndex = defaultIndex != -1 ? defaultIndex : 0;
+    pages = navigationBars.map<Widget>((e) => e['page']).toList();
+  }
+
+  @override
+  void onClose() {
+    bottomBarStream.close();
+    super.onClose();
   }
 }

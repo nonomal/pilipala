@@ -34,15 +34,15 @@ class HomeController extends GetxController with GetTickerProviderStateMixin {
     userInfo = userInfoCache.get('userInfoCache');
     userLogin.value = userInfo != null;
     userFace.value = userInfo != null ? userInfo.face : '';
-    // 进行tabs配置
-    setTabConfig();
     hideSearchBar =
-        setting.get(SettingBoxKey.hideSearchBar, defaultValue: true);
+        setting.get(SettingBoxKey.hideSearchBar, defaultValue: false);
     if (setting.get(SettingBoxKey.enableSearchWord, defaultValue: true)) {
       searchDefault();
     }
     enableGradientBg =
         setting.get(SettingBoxKey.enableGradientBg, defaultValue: true);
+    // 进行tabs配置
+    setTabConfig();
   }
 
   void onRefresh() {
@@ -91,19 +91,21 @@ class HomeController extends GetxController with GetTickerProviderStateMixin {
       vsync: this,
     );
     // 监听 tabController 切换
-    tabController.animation!.addListener(() {
-      if (tabController.indexIsChanging) {
-        if (initialIndex.value != tabController.index) {
-          initialIndex.value = tabController.index;
+    if (enableGradientBg) {
+      tabController.animation!.addListener(() {
+        if (tabController.indexIsChanging) {
+          if (initialIndex.value != tabController.index) {
+            initialIndex.value = tabController.index;
+          }
+        } else {
+          final int temp = tabController.animation!.value.round();
+          if (initialIndex.value != temp) {
+            initialIndex.value = temp;
+            tabController.index = initialIndex.value;
+          }
         }
-      } else {
-        final int temp = tabController.animation!.value.round();
-        if (initialIndex.value != temp) {
-          initialIndex.value = temp;
-          tabController.index = initialIndex.value;
-        }
-      }
-    });
+      });
+    }
   }
 
   void searchDefault() async {
@@ -111,5 +113,11 @@ class HomeController extends GetxController with GetTickerProviderStateMixin {
     if (res.data['code'] == 0) {
       defaultSearch.value = res.data['data']['name'];
     }
+  }
+
+  @override
+  void onClose() {
+    searchBarStream.close();
+    super.onClose();
   }
 }

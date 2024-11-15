@@ -1,16 +1,15 @@
+import 'package:easy_debounce/easy_throttle.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:hive/hive.dart';
 import 'package:pilipala/common/widgets/network_img_layer.dart';
 import 'package:pilipala/models/dynamics/up.dart';
 import 'package:pilipala/models/live/item.dart';
 import 'package:pilipala/pages/dynamics/controller.dart';
 import 'package:pilipala/utils/feed_back.dart';
-import 'package:pilipala/utils/storage.dart';
 import 'package:pilipala/utils/utils.dart';
 
 class UpPanel extends StatefulWidget {
-  final FollowUpModel? upData;
+  final FollowUpModel upData;
   const UpPanel(this.upData, {Key? key}) : super(key: key);
 
   @override
@@ -24,44 +23,53 @@ class _UpPanelState extends State<UpPanel> {
   List<UpItem> upList = [];
   List<LiveUserItem> liveList = [];
   static const itemPadding = EdgeInsets.symmetric(horizontal: 5, vertical: 0);
-  Box userInfoCache = GStrorage.userInfo;
-  var userInfo;
+  late MyInfo userInfo;
 
-  @override
-  void initState() {
-    super.initState();
-    upList = widget.upData!.upList!;
-    if (widget.upData!.liveUsers != null) {
-      liveList = widget.upData!.liveUsers!.items!;
+  void listFormat() {
+    userInfo = widget.upData.myInfo!;
+    upList = widget.upData.upList!;
+    liveList = widget.upData.liveList!;
+  }
+
+  void onClickUp(data, i) {
+    currentMid = data.mid;
+    Get.find<DynamicsController>().mid.value = data.mid;
+    Get.find<DynamicsController>().upInfo.value = data;
+    Get.find<DynamicsController>().onSelectUp(data.mid);
+    int liveLen = liveList.length;
+    int upLen = upList.length;
+    double itemWidth = contentWidth + itemPadding.horizontal;
+    double screenWidth = MediaQuery.sizeOf(context).width;
+    double moveDistance = 0.0;
+    if (itemWidth * (upList.length + liveList.length) <= screenWidth) {
+    } else if ((upLen - i - 0.5) * itemWidth > screenWidth / 2) {
+      moveDistance = (i + liveLen + 0.5) * itemWidth + 46 - screenWidth / 2;
+    } else {
+      moveDistance = (upLen + liveLen) * itemWidth + 46 - screenWidth;
     }
-    upList.insert(
-      0,
-      UpItem(face: '', uname: '全部动态', mid: -1),
+    data.hasUpdate = false;
+    scrollController.animateTo(
+      moveDistance,
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.linear,
     );
-    userInfo = userInfoCache.get('userInfoCache');
-    upList.insert(
-      1,
-      UpItem(
-        face: userInfo.face,
-        uname: '我',
-        mid: userInfo.mid,
-      ),
-    );
+    setState(() {});
   }
 
   @override
   Widget build(BuildContext context) {
+    listFormat();
     return SliverPersistentHeader(
       floating: true,
       pinned: false,
       delegate: _SliverHeaderDelegate(
-          height: 126,
+          height: liveList.isNotEmpty || upList.isNotEmpty ? 126 : 0,
           child: Column(
             mainAxisAlignment: MainAxisAlignment.start,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
-                color: Theme.of(context).colorScheme.background,
+                color: Theme.of(context).colorScheme.surface,
                 padding: const EdgeInsets.only(left: 16, right: 16),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -87,33 +95,37 @@ class _UpPanelState extends State<UpPanel> {
               ),
               Container(
                 height: 90,
-                color: Theme.of(context).colorScheme.background,
-                child: Expanded(
-                  child: ListView(
-                    scrollDirection: Axis.horizontal,
-                    controller: scrollController,
-                    children: [
-                      const SizedBox(width: 10),
-                      if (liveList.isNotEmpty) ...[
-                        for (int i = 0; i < liveList.length; i++) ...[
-                          upItemBuild(liveList[i], i)
+                color: Theme.of(context).colorScheme.surface,
+                child: Row(
+                  children: [
+                    Flexible(
+                      child: ListView(
+                        scrollDirection: Axis.horizontal,
+                        controller: scrollController,
+                        children: [
+                          const SizedBox(width: 10),
+                          if (liveList.isNotEmpty) ...[
+                            for (int i = 0; i < liveList.length; i++) ...[
+                              upItemBuild(liveList[i], i)
+                            ],
+                            VerticalDivider(
+                              indent: 20,
+                              endIndent: 40,
+                              width: 26,
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .primary
+                                  .withOpacity(0.5),
+                            ),
+                          ],
+                          for (int i = 0; i < upList.length; i++) ...[
+                            upItemBuild(upList[i], i)
+                          ],
+                          const SizedBox(width: 10),
                         ],
-                        VerticalDivider(
-                          indent: 20,
-                          endIndent: 40,
-                          width: 26,
-                          color: Theme.of(context)
-                              .colorScheme
-                              .primary
-                              .withOpacity(0.5),
-                        ),
-                      ],
-                      for (int i = 0; i < upList.length; i++) ...[
-                        upItemBuild(upList[i], i)
-                      ],
-                      const SizedBox(width: 10),
-                    ],
-                  ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
               Container(
@@ -134,30 +146,10 @@ class _UpPanelState extends State<UpPanel> {
       onTap: () {
         feedBack();
         if (data.type == 'up') {
-          currentMid = data.mid;
-          Get.find<DynamicsController>().mid.value = data.mid;
-          Get.find<DynamicsController>().upInfo.value = data;
-          Get.find<DynamicsController>().onSelectUp(data.mid);
-          int liveLen = liveList.length;
-          int upLen = upList.length;
-          double itemWidth = contentWidth + itemPadding.horizontal;
-          double screenWidth = MediaQuery.sizeOf(context).width;
-          double moveDistance = 0.0;
-          if (itemWidth * (upList.length + liveList.length) <= screenWidth) {
-          } else if ((upLen - i - 0.5) * itemWidth > screenWidth / 2) {
-            moveDistance =
-                (i + liveLen + 0.5) * itemWidth + 46 - screenWidth / 2;
-          } else {
-            moveDistance = (upLen + liveLen) * itemWidth + 46 - screenWidth;
-          }
-          data.hasUpdate = false;
-          scrollController.animateTo(
-            moveDistance,
-            duration: const Duration(milliseconds: 500),
-            curve: Curves.easeInOut,
-          );
-
-          setState(() {});
+          EasyThrottle.throttle('follow', const Duration(milliseconds: 300),
+              () {
+            onClickUp(data, i);
+          });
         } else if (data.type == 'live') {
           LiveItemModel liveItem = LiveItemModel.fromJson({
             'title': data.title,

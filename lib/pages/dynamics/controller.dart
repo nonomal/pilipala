@@ -14,13 +14,14 @@ import 'package:pilipala/models/dynamics/up.dart';
 import 'package:pilipala/models/live/item.dart';
 import 'package:pilipala/utils/feed_back.dart';
 import 'package:pilipala/utils/id_utils.dart';
+import 'package:pilipala/utils/route_push.dart';
 import 'package:pilipala/utils/storage.dart';
 import 'package:pilipala/utils/utils.dart';
 
 class DynamicsController extends GetxController {
   int page = 1;
   String? offset = '';
-  RxList<DynamicItemModel> dynamicsList = [DynamicItemModel()].obs;
+  RxList<DynamicItemModel> dynamicsList = <DynamicItemModel>[].obs;
   Rx<DynamicsType> dynamicsType = DynamicsType.values[0].obs;
   RxString dynamicsTypeLabel = '全部'.obs;
   final ScrollController scrollController = ScrollController();
@@ -70,7 +71,7 @@ class DynamicsController extends GetxController {
 
   Future queryFollowDynamic({type = 'init'}) async {
     if (!userLogin.value) {
-      return {'status': false, 'msg': '账号未登录'};
+      return {'status': false, 'msg': '账号未登录', 'code': -101};
     }
     if (type == 'init') {
       dynamicsList.clear();
@@ -105,7 +106,7 @@ class DynamicsController extends GetxController {
 
   onSelectType(value) async {
     dynamicsType.value = filterTypeList[value]['value'];
-    dynamicsList.value = [DynamicItemModel()];
+    dynamicsList.value = <DynamicItemModel>[];
     page = 1;
     initialValue.value = value;
     await queryFollowDynamic();
@@ -220,25 +221,7 @@ class DynamicsController extends GetxController {
         print('DYNAMIC_TYPE_PGC_UNION 番剧');
         DynamicArchiveModel pgc = item.modules.moduleDynamic.major.pgc;
         if (pgc.epid != null) {
-          SmartDialog.showLoading(msg: '获取中...');
-          var res = await SearchHttp.bangumiInfo(epId: pgc.epid);
-          SmartDialog.dismiss();
-          if (res['status']) {
-            EpisodeItem episode = res['data'].episodes.first;
-            String bvid = episode.bvid!;
-            int cid = episode.cid!;
-            String pic = episode.cover!;
-            String heroTag = Utils.makeHeroTag(cid);
-            Get.toNamed(
-              '/video?bvid=$bvid&cid=$cid&seasonId=${res['data'].seasonId}',
-              arguments: {
-                'pic': pic,
-                'heroTag': heroTag,
-                'videoType': SearchType.media_bangumi,
-                'bangumiItem': res['data'],
-              },
-            );
-          }
+          RoutePush.bangumiPush(null, pgc.epid);
         }
         break;
     }
@@ -246,11 +229,11 @@ class DynamicsController extends GetxController {
 
   Future queryFollowUp({type = 'init'}) async {
     if (!userLogin.value) {
-      return {'status': false, 'msg': '账号未登录'};
+      return {'status': false, 'msg': '账号未登录', 'code': -101};
     }
     if (type == 'init') {
-      upData.value.upList = [];
-      upData.value.liveUsers = LiveUsers();
+      upData.value.upList = <UpItem>[];
+      upData.value.liveList = <LiveUserItem>[];
     }
     var res = await DynamicsHttp.followUp();
     if (res['status']) {
@@ -258,20 +241,23 @@ class DynamicsController extends GetxController {
       if (upData.value.upList!.isEmpty) {
         mid.value = -1;
       }
+      upData.value.upList!.insertAll(0, [
+        UpItem(face: '', uname: '全部动态', mid: -1),
+        UpItem(face: userInfo.face, uname: '我', mid: userInfo.mid),
+      ]);
     }
     return res;
   }
 
   onSelectUp(mid) async {
     dynamicsType.value = DynamicsType.values[0];
-    dynamicsList.value = [DynamicItemModel()];
+    dynamicsList.value = <DynamicItemModel>[];
     page = 1;
     queryFollowDynamic();
   }
 
   onRefresh() async {
     page = 1;
-    print('onRefresh');
     await queryFollowUp();
     await queryFollowDynamic();
   }
@@ -293,7 +279,7 @@ class DynamicsController extends GetxController {
     dynamicsType.value = DynamicsType.values[0];
     initialValue.value = 0;
     SmartDialog.showToast('还原默认加载');
-    dynamicsList.value = [DynamicItemModel()];
+    dynamicsList.value = <DynamicItemModel>[];
     queryFollowDynamic();
   }
 }

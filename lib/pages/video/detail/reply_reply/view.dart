@@ -19,6 +19,7 @@ class VideoReplyReplyPanel extends StatefulWidget {
     this.firstFloor,
     this.source,
     this.replyType,
+    this.sheetHeight,
     super.key,
   });
   final int? oid;
@@ -27,6 +28,7 @@ class VideoReplyReplyPanel extends StatefulWidget {
   final ReplyItemModel? firstFloor;
   final String? source;
   final ReplyType? replyType;
+  final double? sheetHeight;
 
   @override
   State<VideoReplyReplyPanel> createState() => _VideoReplyReplyPanelState();
@@ -36,7 +38,6 @@ class _VideoReplyReplyPanelState extends State<VideoReplyReplyPanel> {
   late VideoReplyReplyController _videoReplyReplyController;
   late AnimationController replyAnimationCtl;
   final Box<dynamic> localCache = GStrorage.localCache;
-  late double sheetHeight;
   Future? _futureBuilderFuture;
   late ScrollController scrollController;
 
@@ -54,14 +55,14 @@ class _VideoReplyReplyPanelState extends State<VideoReplyReplyPanel> {
       () {
         if (scrollController.position.pixels >=
             scrollController.position.maxScrollExtent - 300) {
-          EasyThrottle.throttle('replylist', const Duration(seconds: 2), () {
+          EasyThrottle.throttle('replylist', const Duration(milliseconds: 200),
+              () {
             _videoReplyReplyController.queryReplyList(type: 'onLoad');
           });
         }
       },
     );
 
-    sheetHeight = localCache.get('sheetHeight');
     _futureBuilderFuture = _videoReplyReplyController.queryReplyList();
   }
 
@@ -76,33 +77,31 @@ class _VideoReplyReplyPanelState extends State<VideoReplyReplyPanel> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: widget.source == 'videoDetail' ? sheetHeight : null,
-      color: Theme.of(context).colorScheme.background,
+      height: widget.source == 'videoDetail' ? widget.sheetHeight : null,
+      color: Theme.of(context).colorScheme.surface,
       child: Column(
         children: [
           if (widget.source == 'videoDetail')
-            Container(
-              height: 45,
-              padding: const EdgeInsets.only(left: 12, right: 2),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: <Widget>[
-                  const Text('评论详情'),
-                  IconButton(
-                    icon: const Icon(Icons.close, size: 20),
-                    onPressed: () {
-                      _videoReplyReplyController.currentPage = 0;
-                      widget.closePanel!();
-                      Navigator.pop(context);
-                    },
-                  ),
-                ],
+            AppBar(
+              toolbarHeight: 45,
+              automaticallyImplyLeading: false,
+              centerTitle: false,
+              title: Text(
+                '评论详情',
+                style: Theme.of(context).textTheme.titleSmall,
               ),
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.close, size: 20),
+                  onPressed: () {
+                    _videoReplyReplyController.currentPage = 0;
+                    widget.closePanel?.call;
+                    Navigator.pop(context);
+                  },
+                ),
+                const SizedBox(width: 14),
+              ],
             ),
-          Divider(
-            height: 1,
-            color: Theme.of(context).dividerColor.withOpacity(0.1),
-          ),
           Expanded(
             child: RefreshIndicator(
               onRefresh: () async {
@@ -139,8 +138,8 @@ class _VideoReplyReplyPanelState extends State<VideoReplyReplyPanel> {
                     future: _futureBuilderFuture,
                     builder: (BuildContext context, snapshot) {
                       if (snapshot.connectionState == ConnectionState.done) {
-                        final Map data = snapshot.data as Map;
-                        if (data['status']) {
+                        Map? data = snapshot.data;
+                        if (data != null && data['status']) {
                           // 请求成功
                           return Obx(
                             () => SliverList(
@@ -184,6 +183,8 @@ class _VideoReplyReplyPanelState extends State<VideoReplyReplyPanel> {
                                             .add(replyItem);
                                       },
                                       replyType: widget.replyType,
+                                      replyReply: (replyItem) =>
+                                          replyReply(replyItem),
                                     );
                                   }
                                 },
@@ -196,7 +197,7 @@ class _VideoReplyReplyPanelState extends State<VideoReplyReplyPanel> {
                         } else {
                           // 请求错误
                           return HttpError(
-                            errMsg: data['msg'],
+                            errMsg: data?['msg'] ?? '请求错误',
                             fn: () => setState(() {}),
                           );
                         }
